@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Rumusan Kehadiran Bulanan Sekolah</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS CDN untuk Fungsi Admin Import Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- PapaParse CDN untuk Automasi Google Sheets -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <style>
+        /* CSS VARIABLES - Skema Warna */
+        :root {
+            --primary: #2563eb;    /* Biru Utama */
+            --success: #16a34a;    /* Hijau Kejayaan */
+            --warning: #f59e0b;    /* Oren Amaran */
+            --danger: #dc2626;     /* Merah Bahaya */
+            --bg-color: #f1f5f9;   /* Latar belakang cerah */
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        /* RESET & BASE */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Inter, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* ADMIN TOP BAR STATUS */
+        .admin-status-bar {
+            display: none; /* Disembunyikan secara lalai */
+            background-color: #1e3a8a;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.2);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .btn-logout {
+            background-color: var(--danger);
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        .btn-logout:hover {
+            opacity: 0.9;
+        }
+
+        .btn-reset-data {
+            background-color: #4b5563;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .btn-reset-data:hover {
+            background-color: #374151;
+        }
+
+        /* HEADER SECTION */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 20px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            margin-bottom: 25px;
+            border-left: 6px solid var(--primary);
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .header-content-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex: 1;
+        }
+
+        .header-title {
+            flex: 1;
+        }
+
+        .header-title h1 {
+            font-size: 1.5rem;
+            color: var(--primary);
+            margin-bottom: 5px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        /* Elemen tajuk sekolah diletakkan kursor pointer untuk memberi isyarat klik rahsia kepada admin sahaja */
+        .header-title h2 {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.2s;
+            display: inline-block;
+        }
+        .header-title h2:hover {
+            color: var(--primary);
+        }
+
+        /* Kawalan Atas (Bulan & Import) */
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .month-select {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-main);
+            background-color: white;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .month-select:focus {
+            border-color: var(--primary);
+        }
+
+        /* Butang Import Excel (Sembunyi secara lalai menerusi CSS) */
+        .btn-import {
+            display: none; /* Disembunyikan sepenuhnya daripada tatapan umum */
+            background-color: var(--success);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-import:hover {
+            background-color: #15803d; 
+        }
+
+        .btn-import:active {
+            transform: scale(0.98);
+        }
+
+        /* Butang Muat Turun Template */
+        .btn-template {
+            display: none; /* Disembunyikan secara lalai (Hanya utk Admin) */
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-template:hover {
+            background-color: #2563eb; 
+        }
+
+        .btn-template:active {
+            transform: scale(0.98);
+        }
+
+        .header-time {
+            text-align: right;
+            background: var(--bg-color);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .time-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .date-display {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--text-main);
+        }
+
+        .time-display {
+            font-size: 1.2rem;
+            color: var(--primary);
+            font-weight: 700;
+            margin-top: 3px;
+        }
+
+        /* KPI CARDS */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            padding: 25px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+            cursor: default;
+            border-bottom: 4px solid transparent;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .kpi-card.blue:hover { border-color: var(--primary); }
+        .kpi-card.orange:hover { border-color: var(--warning); }
+        .kpi-card.green:hover { border-color: var(--success); }
+        .kpi-card.red:hover { border-color: var(--danger); }
+
+        .kpi-info h3 {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .kpi-info .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .kpi-info .value-sub {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-top: 4px;
+        }
+
+        .kpi-icon {
+            font-size: 2.5rem;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .blue .kpi-icon { background: #dbeafe; }
+        .orange .kpi-icon { background: #fef3c7; }
+        .green .kpi-icon { background: #dcfce7; }
+        .red .kpi-icon { background: #fee2e2; }
+
+        /* CHARTS SECTION */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .chart-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .chart-card h3 {
+            font-size: 1.1rem;
+            color: var(--text-main);
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+
+        /* RANKING SECTION */
+        .ranking-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .ranking-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border-top: 4px solid var(--primary);
+        }
+
+        .ranking-card h3 {
+            font-size: 1.1rem;
+            color: var(--text-main);
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ranking-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .ranking-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #cbd5e1;
+            transition: transform 0.2s;
+        }
+
+        .ranking-item:hover {
+            transform: translateX(4px);
+        }
+
+        .ranking-item.rank-1 { border-left-color: #fbbf24; background: #fffbeb; } /* Gold */
+        .ranking-item.rank-2 { border-left-color: #94a3b8; background: #f1f5f9; } /* Silver */
+        .ranking-item.rank-3 { border-left-color: #b45309; background: #fff7ed; } /* Bronze */
+
+        .rank-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+        }
+
+        .rank-badge {
+            font-size: 1.3rem;
+            width: 30px;
+            text-align: center;
+        }
+
+        .rank-class-name {
+            color: var(--text-main);
+            font-size: 0.95rem;
+        }
+
+        .rank-percentage {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 0.95rem;
+        }
+
+        .ranking-empty {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* TABLE SECTION */
+        .table-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .table-header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .table-header-flex h3 {
+            font-size: 1.2rem;
+            color: var(--text-main);
+        }
+
+        .search-box {
+            padding: 10px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            width: 300px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-box:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 14px 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background: #f8fafc;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.2s;
+            user-select: none;
+        }
+
+        th:hover {
+            background: #e2e8f0;
+        }
+        
+        th.sort-asc::after { content: " ▲"; color: var(--primary); }
+        th.sort-desc::after { content: " ▼"; color: var(--primary); }
+
+        tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        td {
+            font-size: 0.95rem;
+            color: var(--text-main);
+        }
+
+        /* Badges */
+        .badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: inline-block;
+            text-align: center;
+            min-width: 70px;
+        }
+
+        .badge-success { background: #dcfce7; color: var(--success); }
+        .badge-warning { background: #fef3c7; color: var(--warning); }
+        .badge-danger { background: #fee2e2; color: var(--danger); }
+        .badge-null { background: #f1f5f9; color: var(--text-muted); }
+
+        /* CUSTOM MODAL RAHSIAPENTADBIR */
+        .custom-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .custom-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            text-align: center;
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .custom-modal h3 {
+            font-size: 1.25rem;
+            color: var(--primary);
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .custom-modal p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+        }
+
+        .custom-modal input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .custom-modal input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .custom-modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn-modal-primary {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .btn-modal-secondary {
+            background-color: #e2e8f0;
+            color: var(--text-main);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        /* ANIMATIONS */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* RESPONSIVE DESIGN */
+        @media (max-width: 992px) {
+            .charts-grid, .ranking-grid {
+                grid-template-columns: 1fr;
+            }
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .header-time {
+                justify-content: space-between;
+                margin-top: 15px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content-wrapper {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .header-time {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .time-wrapper {
+                align-items: center;
+            }
+
+            .table-header-flex {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- BAR PENTADBIR (Hanya ditunjukkan apabila Mod Admin Aktif) -->
+    <div id="adminStatusBar" class="admin-status-bar">
+        <span>🔐 MOD PENTADBIR AKTIF (Sesi Pengurusan Data)</span>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button id="btnResetData" class="btn-reset-data" title="Padam semua cache import dan gunakan semula fail data-kehadiran.json asal">🔄 SET SEMULA DATA (JSON)</button>
+            <button onclick="logKeluarAdmin()" class="btn-logout">LOG KELUAR ADMIN</button>
+        </div>
+    </div>
+
+    <!-- BEKAS NOTIFIKASI POP-UP -->
+    <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px;"></div>
+
+    <!-- CUSTOM MODAL RAHSIAPENTADBIR (Prompt Kata Laluan Rahsia) -->
+    <div id="adminModal" class="custom-modal-overlay">
+        <div class="custom-modal">
+            <h3>PENGESAHAN PENTADBIR</h3>
+            <p>Sila masukkan kata laluan rahsia anda untuk mengaktifkan fungsi pengemaskinian data.</p>
+            <input type="password" id="adminPasswordInput" placeholder="••••••••" autocomplete="off" />
+            <div class="custom-modal-buttons">
+                <button onclick="batalAdminModal()" class="btn-modal-secondary">Batal</button>
+                <button onclick="sahkanAdminModal()" class="btn-modal-primary">Sahkan</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        
+        <!-- HEADER -->
+        <header class="header">
+            <div class="header-content-wrapper">
+                <div class="header-title">
+                    <h1>DASHBOARD RUMUSAN KEHADIRAN BULANAN SEKOLAH</h1>
+                    <!-- Tajuk h2 ditambah event click rahsia untuk Admin -->
+                    <h2 id="schoolTitle" onclick="tambahKlikRahsia()" title="Klik 5 kali secara berturut-turut untuk ruang Pentadbir">Sekolah Kebangsaan Taman Bukit Maluri</h2>
+                    
+                    <!-- Kawalan Atas (Bulan & Import) -->
+                    <div class="header-controls">
+                        <select id="monthSelect" class="month-select">
+                            <option value="Januari">Januari</option>
+                            <option value="Februari">Februari</option>
+                            <option value="Mac">Mac</option>
+                            <option value="April">April</option>
+                            <option value="Mei">Mei</option>
+                            <option value="Jun">Jun</option>
+                            <option value="Julai">Julai</option>
+                            <option value="Ogos">Ogos</option>
+                            <option value="September">September</option>
+                            <option value="Oktober">Oktober</option>
+                            <option value="November">November</option>
+                            <option value="Disember">Disember</option>
+                        </select>
+                        
+                        <!-- Butang Muat Turun Template (Mod Admin) -->
+                        <button id="btnDownloadTemplate" class="btn-template" title="Muat turun template Excel kosong">⬇️ MUAT TURUN TEMPLATE</button>
+
+                        <!-- Input fail disembunyikan (Mod Admin Excel) -->
+                        <input type="file" id="excelFile" accept=".xlsx, .xls" style="display: none;" />
+                        <button id="btnImport" class="btn-import" title="Kemas kini pangkalan data menggunakan fail Excel" style="display:none;">📂 IMPORT EXCEL (ADMIN)</button>
+                    </div>
+                </div>
+            </div>
+            <div class="header-time">
+                <div class="time-wrapper">
+                    <div class="date-display" id="currentDate">Memuatkan tarikh...</div>
+                    <div class="time-display" id="currentTime">00:00:00</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- KPI CARDS -->
+        <div class="kpi-grid">
+            <div class="kpi-card blue">
+                <div class="kpi-info">
+                    <h3>Bulan Semasa</h3>
+                    <div class="value" id="kpi-bulan">-</div>
+                </div>
+                <div class="kpi-icon">📅</div>
+            </div>
+            
+            <div class="kpi-card orange">
+                <div class="kpi-info">
+                    <h3>Purata Kehadiran Sekolah</h3>
+                    <div class="value" id="kpi-purata">0%</div>
+                </div>
+                <div class="kpi-icon">📈</div>
+            </div>
+
+            <div class="kpi-card green">
+                <div class="kpi-info">
+                    <h3>Kelas Tertinggi</h3>
+                    <div class="value-sub" id="kpi-terbaik">-</div>
+                </div>
+                <div class="kpi-icon">🥇</div>
+            </div>
+
+            <div class="kpi-card red">
+                <div class="kpi-info">
+                    <h3>Kelas Terendah</h3>
+                    <div class="value-sub" id="kpi-terendah">-</div>
+                </div>
+                <div class="kpi-icon">⚠️</div>
+            </div>
+        </div>
+
+        <!-- TREND CHART -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 10px;">
+                    <h3 style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">Trend Kehadiran (Januari - Disember)</h3>
+                    <select id="classTrendSelect" class="month-select" title="Pilih kelas untuk lihat trend khusus">
+                        <option value="Semua">Keseluruhan Sekolah</option>
+                        <!-- Senarai kelas akan dijana secara automatik di sini -->
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- RANKING SECTION -->
+        <div class="ranking-grid">
+            <!-- TAHAP 1 CARD -->
+            <div class="ranking-card">
+                <h3>🏆 RANKING TAHAP 1 (Tahun 1, 2, 3)</h3>
+                <div class="ranking-list" id="rankingTahap1">
+                    <!-- Data dinamik -->
+                </div>
+            </div>
+
+            <!-- TAHAP 2 CARD -->
+            <div class="ranking-card">
+                <h3>🏆 RANKING TAHAP 2 (Tahun 4, 5, 6)</h3>
+                <div class="ranking-list" id="rankingTahap2">
+                    <!-- Data dinamik -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLE SECTION -->
+        <div class="table-card">
+            <div class="table-header-flex">
+                <h3>Senarai Kelas & Peratusan Semasa</h3>
+                <input type="text" id="searchInput" class="search-box" placeholder="Cari nama kelas (Cth: 1A)...">
+            </div>
+            <div class="table-responsive">
+                <table id="kelasTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('kelas')" data-col="kelas">Kelas</th>
+                            <th onclick="sortTable('tahun')" data-col="tahun">Tahun</th>
+                            <th onclick="sortTable('peratus')" data-col="peratus">Peratus Kehadiran</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Data dinamik -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Array senarai bulan rasmi (urutan Jan ke Dis)
+        const senaraiBulan = [
+            "Januari", "Februari", "Mac", "April", "Mei", "Jun", 
+            "Julai", "Ogos", "September", "Oktober", "November", "Disember"
+        ];
+
+        // Struktur asas data dashboard
+        let kehadiranSekolahData = [];
+
+        // ==========================================
+        // TETAPAN AUTOMASI GOOGLE SHEETS
+        // ==========================================
+        // SILA TAMPAL LINK GOOGLE SHEETS ANDA DI DALAM PENGIKAT KATA DI BAWAH INI
+        // CONTOH: const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-xxxxxx/pub?output=csv";
+        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQmuK2G1TElla5x57VFyfsib0njTzdVPNFtZG3LqP_Q0JSAqLIKVSb-HPd7Q2w7fywEN9Zu39ZG4hrb/pub?output=csv"; 
+
+        // DATA TERBINA DALAM (SANDARAN) DIKOSONGKAN DARI JULAI HINGGA DISEMBER (Nilai: null)
+        const defaultKehadiranData = [
+            { "kelas": "1A", "tahun": "Tahun 1", "Januari": 95.2, "Februari": 94.8, "Mac": 96.1, "April": 95.5, "Mei": 94.2, "Jun": 95.0, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "1B", "tahun": "Tahun 1", "Januari": 93.5, "Februari": 92.9, "Mac": 94.0, "April": 93.1, "Mei": 92.5, "Jun": 93.8, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "1P", "tahun": "Tahun 1", "Januari": 91.2, "Februari": 90.5, "Mac": 92.1, "April": 91.8, "Mei": 90.2, "Jun": 91.4, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "2A", "tahun": "Tahun 2", "Januari": 96.4, "Februari": 95.9, "Mac": 97.0, "April": 96.5, "Mei": 95.8, "Jun": 96.2, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "2B", "tahun": "Tahun 2", "Januari": 94.1, "Februari": 93.6, "Mac": 94.8, "April": 94.2, "Mei": 93.5, "Jun": 94.0, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "2P", "tahun": "Tahun 2", "Januari": 92.0, "Februari": 91.4, "Mac": 92.8, "April": 92.1, "Mei": 91.5, "Jun": 92.3, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "3A", "tahun": "Tahun 3", "Januari": 95.8, "Februari": 95.2, "Mac": 96.5, "April": 96.0, "Mei": 94.9, "Jun": 95.5, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "3B", "tahun": "Tahun 3", "Januari": 93.9, "Februari": 93.1, "Mac": 94.5, "April": 93.8, "Mei": 92.9, "Jun": 93.6, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "3P", "tahun": "Tahun 3", "Januari": 90.5, "Februari": 89.9, "Mac": 91.2, "April": 90.8, "Mei": 89.5, "Jun": 90.4, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "4A", "tahun": "Tahun 4", "Januari": 97.2, "Februari": 96.8, "Mac": 98.0, "April": 97.5, "Mei": 96.9, "Jun": 97.4, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "4B", "tahun": "Tahun 4", "Januari": 94.8, "Februari": 94.2, "Mac": 95.5, "April": 94.9, "Mei": 93.8, "Jun": 94.5, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "4P", "tahun": "Tahun 4", "Januari": 91.9, "Februari": 91.1, "Mac": 92.5, "April": 92.0, "Mei": 90.9, "Jun": 91.6, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "5A", "tahun": "Tahun 5", "Januari": 96.9, "Februari": 96.4, "Mac": 97.5, "April": 97.0, "Mei": 96.2, "Jun": 96.8, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "5B", "tahun": "Tahun 5", "Januari": 94.5, "Februari": 93.8, "Mac": 95.0, "April": 94.4, "Mei": 93.5, "Jun": 94.1, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "5P", "tahun": "Tahun 5", "Januari": 91.0, "Februari": 90.2, "Mac": 91.8, "April": 91.2, "Mei": 90.0, "Jun": 90.8, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "6A", "tahun": "Tahun 6", "Januari": 98.1, "Februari": 97.6, "Mac": 98.8, "April": 98.2, "Mei": 97.5, "Jun": 98.0, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "6B", "tahun": "Tahun 6", "Januari": 95.0, "Februari": 94.5, "Mac": 95.9, "April": 95.2, "Mei": 94.3, "Jun": 94.9, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null },
+            { "kelas": "6P", "tahun": "Tahun 6", "Januari": 92.5, "Februari": 91.9, "Mac": 93.1, "April": 92.6, "Mei": 91.8, "Jun": 92.4, "Julai": null, "Ogos": null, "September": null, "Oktober": null, "November": null, "Disember": null }
+        ];
+
+        // LOAD DATA DARIPADA FAIL JSON SECARA AUTOMATIK (ATAU OVERRIDE LOCALSTORAGE JIKA ADA)
+        async function muatDataAsal() {
+            // Semak sekiranya admin pernah melakukan "Import Excel" di sesi sebelumnya
+            const savedDataAdmin = localStorage.getItem('kehadiranBulananDataAdmin');
+            
+            if (savedDataAdmin) {
+                // Utamakan data yang telah diubah suai/di-import oleh admin
+                kehadiranSekolahData = JSON.parse(savedDataAdmin);
+                renderDashboard();
+                showToast("Data paparan menggunakan rekod setempat Admin (Sesi Dikemas Kini).", "success");
+            } else if (GOOGLE_SHEET_CSV_URL !== "") {
+                // AUTOMASI GOOGLE SHEETS: Baca data terus dari awan
+                showToast("Memuat turun data awan dari Google Sheets...", "warning");
+                Papa.parse(GOOGLE_SHEET_CSV_URL, {
+                    download: true,
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        try {
+                            kehadiranSekolahData = formatDataDariCSV(results.data);
+                            renderDashboard();
+                            showToast("Data Live dari Google Sheets berjaya dimuatkan!", "success");
+                        } catch(e) {
+                            console.error(e);
+                            showToast("Ralat format Google Sheets, kembali ke data JSON tempatan.", "danger");
+                            muatDataJSONLokal();
+                        }
+                    },
+                    error: function(err) {
+                        console.error(err);
+                        showToast("Gagal capai Google Sheets, kembali ke data asal.", "danger");
+                        muatDataJSONLokal();
+                    }
+                });
+            } else {
+                muatDataJSONLokal();
+            }
+
+            // Selepas memuat data, periksa jika URL mengandungi parameter ?admin=true untuk terus buka Mod Admin
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('admin') === 'true') {
+                bukatAdminModal();
+            } else {
+                // Periksa jika sesi admin aktif sebelum ini disimpan
+                const isSessionAdmin = sessionStorage.getItem('adminModeActive');
+                if (isSessionAdmin === 'true') {
+                    aktifkanModAdmin(false); // Aktifkan mod admin secara senyap tanpa toast berganda
+                }
+            }
+        }
+
+        // FUNGSI BERASINGAN UNTUK BACA FAIL JSON TEMPATAN
+        async function muatDataJSONLokal() {
+            try {
+                const response = await fetch('data-kehadiran.json');
+                if (response.ok) {
+                    kehadiranSekolahData = await response.json();
+                    renderDashboard();
+                    showToast("Pangkalan data (JSON) dimuatkan secara automatik.", "success");
+                } else {
+                    throw new Error("Fail data-kehadiran.json tidak ditemui");
+                }
+            } catch (error) {
+                console.warn("Amaran CORS/File API: Menggunakan data sandaran terbina dalam (fallback).");
+                kehadiranSekolahData = defaultKehadiranData;
+                renderDashboard();
+            }
+        }
+
+        // FUNGSI MENUKAR DATA CSV GOOGLE SHEET KE FORMAT SISTEM
+        function formatDataDariCSV(rawData) {
+            let parsedData = [];
+            
+            if(rawData.length === 0) return parsedData;
+            
+            // Cari kunci (kolum) untuk kelas (case-insensitive)
+            const sampleRow = rawData[0];
+            const keys = Object.keys(sampleRow);
+            const kelasKey = keys.find(k => k.trim().toLowerCase() === 'kelas') || keys[0];
+
+            rawData.forEach(row => {
+                if (!row[kelasKey]) return; // Abaikan baris kosong
+                
+                let kelasName = String(row[kelasKey]).trim();
+                let tahunStr = "Tahun 1";
+                // Tentukan tahun secara automatik berdasarkan huruf pertama kelas
+                if (["1", "2", "3", "4", "5", "6"].includes(kelasName.charAt(0))) {
+                    tahunStr = "Tahun " + kelasName.charAt(0);
+                }
+
+                let rowObj = { kelas: kelasName, tahun: tahunStr };
+
+                // Masukkan data bulan
+                senaraiBulan.forEach(bulan => {
+                    // Cuba padankan nama bulan, contoh: "Januari" dengan header sheet "Jan" atau "Januari"
+                    const matchingKey = keys.find(k => k.trim().toLowerCase().startsWith(bulan.substring(0,3).toLowerCase()));
+                    if (matchingKey && row[matchingKey]) {
+                        let val = String(row[matchingKey]).replace(/[^0-9.]/g, ''); // Ambil nombor sahaja
+                        if (val !== "") rowObj[bulan] = parseFloat(val);
+                    }
+                });
+                parsedData.push(rowObj);
+            });
+            
+            return parsedData;
+        }
+
+        // Tetapkan Dropdown Bulan ke bulan semasa sistem
+        const monthSelect = document.getElementById('monthSelect');
+        const bulanSemasaSistem = senaraiBulan[new Date().getMonth()];
+        monthSelect.value = bulanSemasaSistem;
+
+        // Pembolehubah Global Chart
+        let trendChartInst = null;
+
+        // FUNGSI NOTIFIKASI TOAST
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.style.padding = '12px 24px';
+            toast.style.borderRadius = '8px';
+            toast.style.color = 'white';
+            toast.style.fontWeight = '600';
+            toast.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
+            toast.style.transform = 'translateY(-20px)';
+            toast.style.opacity = '0';
+            toast.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            toast.style.fontSize = '0.95rem';
+            
+            if (type === 'success') toast.style.backgroundColor = 'var(--success)';
+            else if (type === 'warning') toast.style.backgroundColor = 'var(--warning)';
+            else toast.style.backgroundColor = 'var(--danger)';
+            
+            toast.innerText = message;
+            container.appendChild(toast);
+            
+            setTimeout(() => { toast.style.transform = 'translateY(0)'; toast.style.opacity = '1'; }, 50);
+            setTimeout(() => {
+                toast.style.transform = 'translateY(-20px)';
+                toast.style.opacity = '0';
+                setTimeout(() => { toast.remove(); }, 300);
+            }, 4000);
+        }
+
+        // JAM & TARIKH SEMASA
+        function updateTime() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const dateStr = now.toLocaleDateString('ms-MY', options);
+            const timeStr = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            document.getElementById('currentDate').innerText = dateStr;
+            document.getElementById('currentTime').innerText = timeStr;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // PENGURUSAN RAHSIAPENTADBIR (Easter Egg Click & Modal)
+        let kiraanKlikSekolah = 0;
+        let penandaMasaKlik = 0;
+
+        function tambahKlikRahsia() {
+            const masaSekarang = new Date().getTime();
+            // Reset kiraan klik jika jarak antara klik melebihi 3 saat
+            if (masaSekarang - penandaMasaKlik > 3000) {
+                kiraanKlikSekolah = 0;
+            }
+            
+            penandaMasaKlik = masaSekarang;
+            kiraanKlikSekolah++;
+
+            if (kiraanKlikSekolah === 3) {
+                showToast("Lagi 2 klik berturut-turut untuk ruang Pentadbir...", "warning");
+            }
+
+            if (kiraanKlikSekolah >= 5) {
+                kiraanKlikSekolah = 0; // Reset
+                bukatAdminModal();
+            }
+        }
+
+        function bukatAdminModal() {
+            document.getElementById('adminModal').style.display = 'flex';
+            document.getElementById('adminPasswordInput').focus();
+        }
+
+        function batalAdminModal() {
+            document.getElementById('adminModal').style.display = 'none';
+            document.getElementById('adminPasswordInput').value = '';
+            // Buang query parameter admin dari URL untuk keselamatan
+            const url = new URL(window.location);
+            url.searchParams.delete('admin');
+            window.history.replaceState({}, '', url);
+        }
+
+        function sahkanAdminModal() {
+            const inputKunci = document.getElementById('adminPasswordInput').value;
+            // Kata laluan rahsia lalai: cikgu123
+            if (inputKunci === 'cikgu123') {
+                aktifkanModAdmin(true);
+                batalAdminModal();
+            } else {
+                showToast("Kata laluan salah! Akses dinafikan.", "danger");
+                document.getElementById('adminPasswordInput').value = '';
+                document.getElementById('adminPasswordInput').focus();
+            }
+        }
+
+        // Benarkan pengguna tekan butang Enter pada ruang password input modal
+        document.getElementById('adminPasswordInput').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                sahkanAdminModal();
+            }
+        });
+
+        // AKTIFKAN MOD ADMIN (Kembalikan butang Import Excel)
+        function aktifkanModAdmin(paparNotifikasi = true) {
+            sessionStorage.setItem('adminModeActive', 'true');
+            
+            // Paparkan Bar Status, Butang Muat Turun Template dan Butang Import Excel
+            document.getElementById('adminStatusBar').style.display = 'flex';
+            document.getElementById('btnDownloadTemplate').style.display = 'inline-flex';
+            document.getElementById('btnImport').style.display = 'inline-flex';
+            
+            if (paparNotifikasi) {
+                showToast("🔑 Akses Pentadbir Diaktifkan! Pilihan Excel kini tersedia.", "success");
+            }
+        }
+
+        // LOG KELUAR ADMIN (Kembalikan ke tatapan umum yang bersih)
+        function logKeluarAdmin() {
+            sessionStorage.removeItem('adminModeActive');
+            
+            // Sembunyikan semua akses pentadbir
+            document.getElementById('adminStatusBar').style.display = 'none';
+            document.getElementById('btnDownloadTemplate').style.display = 'none';
+            document.getElementById('btnImport').style.display = 'none';
+            
+            showToast("Akses pentadbir ditutup. Kembali ke paparan awam.", "warning");
+        }
+
+        // FUNGSI RESET DATA ADMIN (Kembali memuatkan fail JSON asal)
+        document.getElementById('btnResetData').addEventListener('click', function() {
+            localStorage.removeItem('kehadiranBulananDataAdmin');
+            showToast("Memadam cache import pentadbir...", "warning");
+            
+            // Muatkan semula data default secara senyap
+            setTimeout(() => {
+                if (GOOGLE_SHEET_CSV_URL !== "") {
+                    muatDataAsal(); // Trigger Google Sheets kembali
+                } else {
+                    muatDataJSONLokal(); // Trigger fail JSON tempatan
+                }
+            }, 600);
+        });
+
+        // RENDERING UTAMA
+        function renderDashboard() {
+            const bulanDipilih = monthSelect.value;
+            document.getElementById('kpi-bulan').innerText = bulanDipilih;
+
+            let kelasSahBulanIni = [];
+            let totalPeratusBulanIni = 0;
+            
+            let kelasTerbaik = "-";
+            let peratusTerbaik = -1;
+            let kelasTerendah = "-";
+            let peratusTerendah = 101;
+
+            // Kumpul data kelas yang ada nilai bagi bulan yang dipilih
+            kehadiranSekolahData.forEach(data => {
+                const nilaiBulan = data[bulanDipilih];
+                
+                if (nilaiBulan !== undefined && nilaiBulan !== null && nilaiBulan !== "") {
+                    const peratusFloat = parseFloat(nilaiBulan);
+                    
+                    kelasSahBulanIni.push({
+                        kelas: data.kelas,
+                        tahun: data.tahun,
+                        peratus: peratusFloat
+                    });
+
+                    totalPeratusBulanIni += peratusFloat;
+
+                    if (peratusFloat > peratusTerbaik) {
+                        peratusTerbaik = peratusFloat;
+                        kelasTerbaik = `${data.kelas} (${peratusFloat.toFixed(2)}%)`;
+                    }
+                    if (peratusFloat < peratusTerendah) {
+                        peratusTerendah = peratusFloat;
+                        kelasTerendah = `${data.kelas} (${peratusFloat.toFixed(2)}%)`;
+                    }
+                }
+            });
+
+            // Pengiraan Purata Bulan Semasa
+            let purataKeseluruhan = "0.00";
+            if (kelasSahBulanIni.length > 0) {
+                purataKeseluruhan = (totalPeratusBulanIni / kelasSahBulanIni.length).toFixed(2);
+            } else {
+                kelasTerbaik = "Tiada Rekod";
+                kelasTerendah = "Tiada Rekod";
+            }
+
+            // Kemas kini DOM KPI
+            document.getElementById('kpi-purata').innerText = purataKeseluruhan + "%";
+            document.getElementById('kpi-terbaik').innerText = kelasTerbaik;
+            document.getElementById('kpi-terendah').innerText = kelasTerendah;
+
+            kemaskiniDropdownKelas();
+            renderTrendChart();
+            renderRanking(kelasSahBulanIni);
+            
+            // Render jadual (tapis carian jika ada)
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            let dataJadual = kelasSahBulanIni;
+            if (searchTerm) {
+                dataJadual = kelasSahBulanIni.filter(d => d.kelas.toLowerCase().includes(searchTerm));
+            }
+            renderTable(dataJadual);
+        }
+
+        // FUNGSI KEMAS KINI DROPDOWN KELAS UNTUK CARTA TREND
+        function kemaskiniDropdownKelas() {
+            const classSelect = document.getElementById('classTrendSelect');
+            if (!classSelect) return;
+            
+            const currentValue = classSelect.value;
+            classSelect.innerHTML = '<option value="Semua">Keseluruhan Sekolah</option>';
+            
+            // Dapatkan senarai kelas yang unik dan susun secara abjad
+            const senaraiKelas = [...new Set(kehadiranSekolahData.map(d => d.kelas))].sort();
+            
+            senaraiKelas.forEach(kelas => {
+                const option = document.createElement('option');
+                option.value = kelas;
+                option.innerText = `Kelas ${kelas}`;
+                classSelect.appendChild(option);
+            });
+            
+            // Kekalkan pilihan kelas yang sedang dilihat jika ia wujud dalam data baharu
+            if (currentValue && senaraiKelas.includes(currentValue)) {
+                classSelect.value = currentValue;
+            } else {
+                classSelect.value = "Semua";
+            }
+        }
+
+        // PAPARAN CARTA TREND (JAN - DIS)
+        function renderTrendChart() {
+            let trendData = [];
+            let labelCarta = 'Purata Kehadiran Sekolah (%)';
+            const classSelect = document.getElementById('classTrendSelect');
+            const kelasDipilih = classSelect ? classSelect.value : "Semua";
+
+            if (kelasDipilih === "Semua") {
+                // Kira purata keseluruhan sekolah bagi setiap bulan
+                senaraiBulan.forEach(bulan => {
+                    let sum = 0;
+                    let count = 0;
+                    
+                    kehadiranSekolahData.forEach(d => {
+                        const val = d[bulan];
+                        if (val !== undefined && val !== null && val !== "") {
+                            sum += parseFloat(val);
+                            count++;
+                        }
+                    });
+
+                    if (count > 0) {
+                        trendData.push((sum / count).toFixed(2));
+                    } else {
+                        trendData.push(null);
+                    }
+                });
+            } else {
+                // Carta khusus mengikut kelas
+                labelCarta = `Peratus Kehadiran: Kelas ${kelasDipilih} (%)`;
+                const dataKelas = kehadiranSekolahData.find(d => d.kelas === kelasDipilih);
+                
+                senaraiBulan.forEach(bulan => {
+                    if (dataKelas) {
+                        const val = dataKelas[bulan];
+                        if (val !== undefined && val !== null && val !== "") {
+                            trendData.push(parseFloat(val).toFixed(2));
+                        } else {
+                            trendData.push(null);
+                        }
+                    } else {
+                        trendData.push(null);
+                    }
+                });
+            }
+
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            if (trendChartInst) trendChartInst.destroy();
+            
+            trendChartInst = new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                    labels: senaraiBulan,
+                    datasets: [{
+                        label: labelCarta,
+                        data: trendData,
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#1e40af',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        fill: true,
+                        tension: 0.3,
+                        spanGaps: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            title: { display: true, text: 'Peratusan (%)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // RANKING TAHAP 1 & TAHAP 2
+        function renderRanking(kelasSah) {
+            const containerT1 = document.getElementById('rankingTahap1');
+            const containerT2 = document.getElementById('rankingTahap2');
+
+            containerT1.innerHTML = "";
+            containerT2.innerHTML = "";
+
+            if (kelasSah.length === 0) {
+                containerT1.innerHTML = `<div class="ranking-empty">Pangkalan data bagi bulan ini masih kosong.</div>`;
+                containerT2.innerHTML = `<div class="ranking-empty">Pangkalan data bagi bulan ini masih kosong.</div>`;
+                return;
+            }
+
+            // Tapis mengikut Tahun
+            const tahap1Kelas = kelasSah.filter(d => ["Tahun 1", "Tahun 2", "Tahun 3"].includes(d.tahun));
+            const tahap2Kelas = kelasSah.filter(d => ["Tahun 4", "Tahun 5", "Tahun 6"].includes(d.tahun));
+
+            // Susun dari tertinggi ke terendah
+            tahap1Kelas.sort((a, b) => b.peratus - a.peratus);
+            tahap2Kelas.sort((a, b) => b.peratus - a.peratus);
+
+            const top3Tahap1 = tahap1Kelas.slice(0, 3);
+            const top3Tahap2 = tahap2Kelas.slice(0, 3);
+
+            const medalEmojis = ["🥇", "🥈", "🥉"];
+
+            // Render T1
+            if (top3Tahap1.length === 0) {
+                containerT1.innerHTML = `<div class="ranking-empty">Tiada rekod bagi Tahap 1.</div>`;
+            } else {
+                top3Tahap1.forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `ranking-item rank-${index + 1}`;
+                    itemDiv.innerHTML = `
+                        <div class="rank-info">
+                            <span class="rank-badge">${medalEmojis[index]}</span>
+                            <span class="rank-class-name">${item.kelas}</span>
+                        </div>
+                        <span class="rank-percentage">${item.peratus.toFixed(2)}%</span>
+                    `;
+                    containerT1.appendChild(itemDiv);
+                });
+            }
+
+            // Render T2
+            if (top3Tahap2.length === 0) {
+                containerT2.innerHTML = `<div class="ranking-empty">Tiada rekod bagi Tahap 2.</div>`;
+            } else {
+                top3Tahap2.forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `ranking-item rank-${index + 1}`;
+                    itemDiv.innerHTML = `
+                        <div class="rank-info">
+                            <span class="rank-badge">${medalEmojis[index]}</span>
+                            <span class="rank-class-name">${item.kelas}</span>
+                        </div>
+                        <span class="rank-percentage">${item.peratus.toFixed(2)}%</span>
+                    `;
+                    containerT2.appendChild(itemDiv);
+                });
+            }
+        }
+
+        // JADUAL KELAS
+        function renderTable(dataArray) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = ""; 
+
+            if(dataArray.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 20px;">Tiada rekod bagi bulan ini.</td></tr>`;
+                return;
+            }
+
+            dataArray.forEach(row => {
+                let badgeClass = '';
+                if (row.peratus >= 95) badgeClass = 'badge-success'; 
+                else if (row.peratus >= 90) badgeClass = 'badge-warning'; 
+                else badgeClass = 'badge-danger'; 
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${row.kelas}</td>
+                    <td>${row.tahun}</td>
+                    <td><span class="badge ${badgeClass}">${row.peratus.toFixed(2)}%</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // EVENT LISTENER: TUKAR BULAN
+        monthSelect.addEventListener('change', function() {
+            renderDashboard();
+        });
+
+        // EVENT LISTENER: TUKAR KELAS PADA CARTA TREND
+        document.getElementById('classTrendSelect').addEventListener('change', function() {
+            renderTrendChart();
+        });
+
+        // EVENT LISTENER: CARIAN
+        document.getElementById('searchInput').addEventListener('input', function() {
+            renderDashboard();
+        });
+
+        // FUNGSI SORTING JADUAL
+        let currentSort = { col: null, asc: true };
+        function sortTable(column) {
+            if (currentSort.col === column) {
+                currentSort.asc = !currentSort.asc;
+            } else {
+                currentSort.col = column;
+                currentSort.asc = true;
+            }
+
+            document.querySelectorAll('th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                if (th.getAttribute('data-col') === column) {
+                    th.classList.add(currentSort.asc ? 'sort-asc' : 'sort-desc');
+                }
+            });
+
+            const bulanDipilih = monthSelect.value;
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            let dataToSort = [];
+            kehadiranSekolahData.forEach(d => {
+                const val = d[bulanDipilih];
+                if (val !== undefined && val !== null && val !== "" && d.kelas.toLowerCase().includes(searchTerm)) {
+                    dataToSort.push({ kelas: d.kelas, tahun: d.tahun, peratus: parseFloat(val) });
+                }
+            });
+
+            dataToSort.sort((a, b) => {
+                let valA = a[column];
+                let valB = b[column];
+                if (valA < valB) return currentSort.asc ? -1 : 1;
+                if (valA > valB) return currentSort.asc ? 1 : -1;
+                return 0;
+            });
+
+            renderTable(dataToSort);
+        }
+
+        // FUNGSI PENTADBIR: IMPORT EXCEL
+        document.getElementById('btnImport').addEventListener('click', () => {
+            document.getElementById('excelFile').click();
+        });
+
+        document.getElementById('excelFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (!rawRows || rawRows.length < 2) {
+                        showToast("Fail Excel kosong atau tidak sah.", "danger");
+                        return;
+                    }
+
+                    // Pembersihan Header
+                    const headers = rawRows[0].map(h => h ? String(h).replace(/[^a-zA-Z0-9]/g, '').toLowerCase() : "");
+                    
+                    const aliasKelas = ["kelas", "class", "namakelas"];
+                    const idxKelas = headers.findIndex(h => aliasKelas.includes(h));
+
+                    if (idxKelas === -1) {
+                        showToast("Lajur 'KELAS' tidak dijumpai di baris pertama Excel.", "danger");
+                        return;
+                    }
+
+                    const monthMappings = {
+                        "Januari": ["jan", "januari", "january"],
+                        "Februari": ["feb", "februari", "february"],
+                        "Mac": ["mac", "mar", "march"],
+                        "April": ["apr", "april"],
+                        "Mei": ["mei", "may"],
+                        "Jun": ["jun", "june"],
+                        "Julai": ["jul", "julai", "july"],
+                        "Ogos": ["ogs", "ogos", "aug", "august"],
+                        "September": ["sep", "september"],
+                        "Oktober": ["okt", "oktober", "oct", "october"],
+                        "November": ["nov", "november"],
+                        "Disember": ["dis", "disember", "dec", "december"]
+                    };
+
+                    const monthIndices = {};
+                    senaraiBulan.forEach(bulan => {
+                        const aliases = monthMappings[bulan];
+                        const foundIdx = headers.findIndex(h => aliases.includes(h));
+                        if (foundIdx !== -1) {
+                            monthIndices[bulan] = foundIdx;
+                        }
+                    });
+
+                    if (Object.keys(monthIndices).length === 0) {
+                        showToast("Tiada lajur bulan (Jan-Dis) dikesan.", "danger");
+                        return;
+                    }
+
+                    let parsedData = [];
+
+                    for (let i = 1; i < rawRows.length; i++) {
+                        const row = rawRows[i];
+                        if (!row || row.length === 0) continue;
+
+                        const kelasName = row[idxKelas] ? String(row[idxKelas]).trim() : "";
+                        if (!kelasName) continue;
+
+                        const firstChar = kelasName.charAt(0);
+                        let tahunStr = "Tahun 1";
+                        if (["1", "2", "3", "4", "5", "6"].includes(firstChar)) {
+                            tahunStr = "Tahun " + firstChar;
+                        }
+
+                        let rowObj = {
+                            kelas: kelasName,
+                            tahun: tahunStr
+                        };
+
+                        senaraiBulan.forEach(bulan => {
+                            const mIdx = monthIndices[bulan];
+                            if (mIdx !== undefined && mIdx !== -1) {
+                                let val = row[mIdx];
+                                if (val !== undefined && val !== null && val !== "") {
+                                    val = String(val).replace(/[^0-9.]/g, ''); 
+                                    if (val !== "") {
+                                        rowObj[bulan] = parseFloat(val);
+                                    }
+                                }
+                            }
+                        });
+
+                        parsedData.push(rowObj);
+                    }
+
+                    if (parsedData.length > 0) {
+                        kehadiranSekolahData = parsedData;
+                        // Simpan memori hasil import admin ke localStorage
+                        localStorage.setItem('kehadiranBulananDataAdmin', JSON.stringify(kehadiranSekolahData));
+                        
+                        renderDashboard();
+                        showToast("Data Excel berjaya diimport dan pangkalan data telah dikemas kini!", "success");
+                    } else {
+                        showToast("Tiada data kelas yang sah ditemui.", "danger");
+                    }
+
+                } catch (error) {
+                    console.error(error);
+                    showToast("Ralat semasa membaca Excel.", "danger");
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+            e.target.value = ''; // Reset input
+        });
+
+        // FUNGSI PENTADBIR: MUAT TURUN TEMPLATE EXCEL KOSONG
+        document.getElementById('btnDownloadTemplate').addEventListener('click', function() {
+            // 1. Sediakan data asas beserta contoh kelas
+            const dataTemplate = [
+                ["KELAS", "Januari", "Februari", "Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"],
+                ["1A", "", "", "", "", "", "", "", "", "", "", "", ""],
+                ["2A", "", "", "", "", "", "", "", "", "", "", "", ""],
+                ["3A", "", "", "", "", "", "", "", "", "", "", "", ""],
+                ["4A", "", "", "", "", "", "", "", "", "", "", "", ""],
+                ["5A", "", "", "", "", "", "", "", "", "", "", "", ""],
+                ["6A", "", "", "", "", "", "", "", "", "", "", "", ""]
+            ];
+
+            try {
+                // 2. Bina buku kerja (workbook) menggunakan perpustakaan SheetJS
+                const ws = XLSX.utils.aoa_to_sheet(dataTemplate);
+                
+                // 3. Laraskan lebar lajur supaya nampak kemas apabila dibuka dalam Microsoft Excel
+                const wscols = [
+                    {wch: 15}, // KELAS
+                    {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}, 
+                    {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}
+                ];
+                ws['!cols'] = wscols;
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Template_Kehadiran");
+
+                // 4. Trigger muat turun fail ke peranti pengguna
+                XLSX.writeFile(wb, "Template_Kehadiran_Sekolah.xlsx");
+                
+                showToast("Template Excel berjaya dimuat turun! Sila isi dan muat naik semula.", "success");
+            } catch(e) {
+                console.error("Ralat muat turun:", e);
+                showToast("Gagal memuat turun template.", "danger");
+            }
+        });
+
+        // Initialize pertama kali apabila page dilayari
+        muatDataAsal();
+
+    </script>
+</body>
+</html>
