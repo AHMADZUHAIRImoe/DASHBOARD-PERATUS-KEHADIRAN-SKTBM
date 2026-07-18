@@ -15,10 +15,11 @@
         /* CSS VARIABLES - Skema Warna */
         :root {
             --primary: #2563eb;    /* Biru Utama */
+            --primary-dark: #1e3a8a; /* Biru Gelap (Untuk Header) */
             --success: #16a34a;    /* Hijau Kejayaan */
             --warning: #f59e0b;    /* Oren Amaran */
             --danger: #dc2626;     /* Merah Bahaya */
-            --bg-color: #f1f5f9;   /* Latar belakang cerah */
+            --bg-color: #eff6ff;   /* Latar belakang biru cair */
             --card-bg: #ffffff;
             --text-main: #1e293b;
             --text-muted: #64748b;
@@ -35,6 +36,8 @@
 
         body {
             background-color: var(--bg-color);
+            background-image: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); /* Kecerunan biru lembut */
+            background-attachment: fixed;
             color: var(--text-main);
             min-height: 100vh;
             padding: 20px;
@@ -97,12 +100,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: var(--card-bg);
+            /* Kecerunan baharu: Biru Sederhana ke Biru Langit (Lebih cerah & profesional) */
+            background: linear-gradient(135deg, #3b82f6 0%, #38bdf8 100%);
             padding: 20px 25px;
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 20px -5px rgba(56, 189, 248, 0.3);
             margin-bottom: 25px;
-            border-left: 6px solid var(--primary);
             flex-wrap: wrap;
             gap: 15px;
         }
@@ -120,10 +123,11 @@
 
         .header-title h1 {
             font-size: 1.5rem;
-            color: var(--primary);
+            color: #ffffff;
             margin-bottom: 5px;
             font-weight: 700;
             text-transform: uppercase;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1); /* Bayang dilembutkan sedikit */
         }
 
         /* Gaya untuk Logo Sekolah (Kemas Kini: Kotak Putih Bersudut Bulat) */
@@ -146,7 +150,7 @@
         /* Elemen tajuk sekolah diletakkan kursor pointer untuk memberi isyarat klik rahsia kepada admin sahaja */
         .header-title h2 {
             font-size: 1.1rem;
-            color: var(--text-muted);
+            color: #e0f2fe; /* Biru langit sangat cair supaya timbul pada latar cerah */
             font-weight: 500;
             cursor: pointer;
             user-select: none;
@@ -154,7 +158,7 @@
             display: inline-block;
         }
         .header-title h2:hover {
-            color: var(--primary);
+            color: #ffffff;
         }
 
         /* Kawalan Atas (Bulan & Import) */
@@ -233,10 +237,11 @@
 
         .header-time {
             text-align: right;
-            background: var(--bg-color);
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
             padding: 10px 20px;
             border-radius: 8px;
-            border: 1px solid var(--border-color);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             display: flex;
             align-items: center;
             gap: 20px;
@@ -251,12 +256,12 @@
         .date-display {
             font-weight: 600;
             font-size: 1rem;
-            color: var(--text-main);
+            color: #ffffff;
         }
 
         .time-display {
             font-size: 1.2rem;
-            color: var(--primary);
+            color: #bae6fd; /* Disesuaikan dengan tona biru langit */
             font-weight: 700;
             margin-top: 3px;
         }
@@ -273,7 +278,7 @@
             background: var(--card-bg);
             padding: 25px 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 10px -1px rgba(37, 99, 235, 0.08);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -284,7 +289,7 @@
 
         .kpi-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 12px 20px -3px rgba(37, 99, 235, 0.15);
         }
 
         .kpi-card.blue:hover { border-color: var(--primary); }
@@ -340,7 +345,7 @@
             background: var(--card-bg);
             padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 10px -1px rgba(37, 99, 235, 0.08);
         }
 
         .chart-card h3 {
@@ -369,7 +374,7 @@
             background: var(--card-bg);
             padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 10px -1px rgba(37, 99, 235, 0.08);
             border-top: 4px solid var(--primary);
         }
 
@@ -445,7 +450,7 @@
             background: var(--card-bg);
             padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 10px -1px rgba(37, 99, 235, 0.08);
         }
 
         .table-header-flex {
@@ -713,20 +718,7 @@
                     
                     <!-- Kawalan Atas (Bulan & Import) -->
                     <div class="header-controls">
-                        <select id="monthSelect" class="month-select">
-                            <option value="Januari">Januari</option>
-                            <option value="Februari">Februari</option>
-                            <option value="Mac">Mac</option>
-                            <option value="April">April</option>
-                            <option value="Mei">Mei</option>
-                            <option value="Jun">Jun</option>
-                            <option value="Julai">Julai</option>
-                            <option value="Ogos">Ogos</option>
-                            <option value="September">September</option>
-                            <option value="Oktober">Oktober</option>
-                            <option value="November">November</option>
-                            <option value="Disember">Disember</option>
-                        </select>
+                        <!-- Pilihan Bulan telah dipindahkan ke Kad KPI di bawah supaya lebih kemas -->
                         
                         <!-- Butang Muat Turun Template (Mod Admin) -->
                         <button id="btnDownloadTemplate" class="btn-template" title="Muat turun template Excel kosong">⬇️ MUAT TURUN TEMPLATE</button>
@@ -748,9 +740,25 @@
         <!-- KPI CARDS -->
         <div class="kpi-grid">
             <div class="kpi-card blue">
-                <div class="kpi-info">
+                <div class="kpi-info" style="flex: 1; padding-right: 15px;">
                     <h3>Bulan Semasa</h3>
-                    <div class="value" id="kpi-bulan">-</div>
+                    <!-- Dropdown Bulan Kini Berada di Sini -->
+                    <select id="monthSelect" class="month-select" style="margin-top: 8px; width: 100%; font-size: 1.1rem; padding: 8px 10px; border: 2px solid #bfdbfe; background-color: #f0f9ff; color: var(--primary-dark); font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.2s;">
+                        <option value="Januari">Januari</option>
+                        <option value="Februari">Februari</option>
+                        <option value="Mac">Mac</option>
+                        <option value="April">April</option>
+                        <option value="Mei">Mei</option>
+                        <option value="Jun">Jun</option>
+                        <option value="Julai">Julai</option>
+                        <option value="Ogos">Ogos</option>
+                        <option value="September">September</option>
+                        <option value="Oktober">Oktober</option>
+                        <option value="November">November</option>
+                        <option value="Disember">Disember</option>
+                    </select>
+                    <!-- Elemen ID asal disembunyikan supaya kod JS sedia ada berfungsi sempurna tanpa ralat -->
+                    <div class="value" id="kpi-bulan" style="display: none;">-</div>
                 </div>
                 <div class="kpi-icon">📅</div>
             </div>
