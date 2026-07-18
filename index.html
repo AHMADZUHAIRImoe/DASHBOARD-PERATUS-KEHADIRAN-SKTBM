@@ -126,6 +126,23 @@
             text-transform: uppercase;
         }
 
+        /* Gaya untuk Logo Sekolah (Kemas Kini: Kotak Putih Bersudut Bulat) */
+        .school-logo {
+            width: 85px;
+            height: 85px;
+            object-fit: contain;
+            background-color: white;
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            flex-shrink: 0;
+            transition: transform 0.3s ease;
+        }
+
+        .school-logo:hover {
+            transform: scale(1.05);
+        }
+
         /* Elemen tajuk sekolah diletakkan kursor pointer untuk memberi isyarat klik rahsia kepada admin sahaja */
         .header-title h2 {
             font-size: 1.1rem;
@@ -688,6 +705,7 @@
         <!-- HEADER -->
         <header class="header">
             <div class="header-content-wrapper">
+                <img src="https://lh3.googleusercontent.com/d/19sMt_aOnM9FAUTpgTXhHCEtubvbUx2Wr" onerror="this.onerror=null; this.src='images.png';" alt="Logo SK Taman Bukit Maluri" class="school-logo" title="SK Taman Bukit Maluri">
                 <div class="header-title">
                     <h1>DASHBOARD RUMUSAN KEHADIRAN BULANAN SEKOLAH</h1>
                     <!-- Tajuk h2 ditambah event click rahsia untuk Admin -->
