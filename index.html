@@ -737,6 +737,26 @@
             </div>
         </header>
 
+        <!-- SASARAN TAHUNAN KESELURUHAN (YTD) -->
+        <div class="target-container" style="background: var(--card-bg); padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 10px -1px rgba(37, 99, 235, 0.08); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; border-left: 5px solid var(--primary);">
+            <div style="flex: 1; min-width: 300px; display: flex; align-items: center; gap: 20px;">
+                <div style="position: relative; width: 110px; height: 110px; flex-shrink: 0;">
+                    <canvas id="ytdChart"></canvas>
+                    <div id="purataSemasaYTD_Center" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.15rem; font-weight: bold; color: var(--text-main);">0%</div>
+                </div>
+                <div>
+                    <h3 style="color: var(--text-muted); font-size: 0.95rem; text-transform: uppercase; margin-bottom: 6px; font-weight: 600;">Purata Kehadiran Semasa</h3>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 1.2rem; color: var(--text-main); font-weight: 700;">Terkini: <span id="labelBulanTerkini">-</span></span>
+                        <span style="font-size: 0.95rem; color: var(--text-muted); font-weight: 600;">Sasaran Disember: 95%</span>
+                    </div>
+                </div>
+            </div>
+            <div id="statusSasaran" style="padding: 15px 25px; border-radius: 8px; font-weight: bold; text-align: center; font-size: 1.05rem;">
+                Sedang Dikira...
+            </div>
+        </div>
+
         <!-- KPI CARDS -->
         <div class="kpi-grid">
             <div class="kpi-card blue">
@@ -863,7 +883,7 @@
         // ==========================================
         // SILA TAMPAL LINK GOOGLE SHEETS ANDA DI DALAM PENGIKAT KATA DI BAWAH INI
         // CONTOH: const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-xxxxxx/pub?output=csv";
-        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQmuK2G1TElla5x57VFyfsib0njTzdVPNFtZG3LqP_Q0JSAqLIKVSb-HPd7Q2w7fywEN9Zu39ZG4hrb/pub?output=csv"; 
+        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQevnqsjPpB0gnLjBclk9T-goD3dYnCsyyr-9v0sJuCf8dHyuH8BH9N9eLDnCQEzQ/pub?gid=1565126524&single=true&output=csv";
 
         // DATA TERBINA DALAM (SANDARAN) DIKOSONGKAN DARI JULAI HINGGA DISEMBER (Nilai: null)
         const defaultKehadiranData = [
@@ -898,29 +918,36 @@
                 renderDashboard();
                 showToast("Data paparan menggunakan rekod setempat Admin (Sesi Dikemas Kini).", "success");
             } else if (GOOGLE_SHEET_CSV_URL !== "") {
-                // AUTOMASI GOOGLE SHEETS: Baca data terus dari awan
+                // AUTOMASI GOOGLE SHEETS: Baca data terus dari awan menggunakan Fetch API (Mengelakkan ralat XHR PapaParse)
                 showToast("Memuat turun data awan dari Google Sheets...", "warning");
-                Papa.parse(GOOGLE_SHEET_CSV_URL, {
-                    download: true,
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: function(results) {
-                        try {
-                            kehadiranSekolahData = formatDataDariCSV(results.data);
-                            renderDashboard();
-                            showToast("Data Live dari Google Sheets berjaya dimuatkan!", "success");
-                        } catch(e) {
-                            console.error(e);
-                            showToast("Ralat format Google Sheets, kembali ke data JSON tempatan.", "danger");
-                            muatDataJSONLokal();
-                        }
-                    },
-                    error: function(err) {
-                        console.error(err);
-                        showToast("Gagal capai Google Sheets, kembali ke data asal.", "danger");
-                        muatDataJSONLokal();
+                
+                try {
+                    const response = await fetch(GOOGLE_SHEET_CSV_URL);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                });
+                    const csvText = await response.text();
+                    
+                    Papa.parse(csvText, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: function(results) {
+                            try {
+                                kehadiranSekolahData = formatDataDariCSV(results.data);
+                                renderDashboard();
+                                showToast("Data Live dari Google Sheets berjaya dimuatkan!", "success");
+                            } catch(e) {
+                                console.error(e);
+                                showToast("Ralat format Google Sheets, kembali ke data JSON tempatan.", "danger");
+                                muatDataJSONLokal();
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error("Ralat capaian Google Sheets:", error);
+                    showToast("Gagal capai Google Sheets (mungkin disekat). Kembali ke data asal.", "danger");
+                    muatDataJSONLokal();
+                }
             } else {
                 muatDataJSONLokal();
             }
@@ -1001,6 +1028,7 @@
 
         // Pembolehubah Global Chart
         let trendChartInst = null;
+        let ytdChartInst = null;
 
         // FUNGSI NOTIFIKASI TOAST
         function showToast(message, type = 'success') {
@@ -1196,6 +1224,7 @@
             document.getElementById('kpi-terbaik').innerText = kelasTerbaik;
             document.getElementById('kpi-terendah').innerText = kelasTerendah;
 
+            renderSasaranYTD(); // Panggil pengiraan sasaran keseluruhan
             kemaskiniDropdownKelas();
             renderTrendChart();
             renderRanking(kelasSahBulanIni);
@@ -1207,6 +1236,116 @@
                 dataJadual = kelasSahBulanIni.filter(d => d.kelas.toLowerCase().includes(searchTerm));
             }
             renderTable(dataJadual);
+        }
+
+        // FUNGSI PENGIRAAN SASARAN SEMASA KESELURUHAN (YTD) VS 95%
+        function renderSasaranYTD() {
+            let totalSistem = 0;
+            let countSistem = 0;
+            let bulanTerkiniIndex = -1;
+
+            // Cari bulan terkini yang ada rekod dalam pangkalan data
+            for (let i = 0; i < senaraiBulan.length; i++) {
+                let bulan = senaraiBulan[i];
+                let adaData = kehadiranSekolahData.some(d => d[bulan] !== null && d[bulan] !== undefined && d[bulan] !== "");
+                if (adaData) {
+                    bulanTerkiniIndex = i;
+                }
+            }
+
+            // Jika tiada data langsung
+            if (bulanTerkiniIndex === -1) {
+                document.getElementById('labelBulanTerkini').innerText = "Tiada Data";
+                document.getElementById('purataSemasaYTD_Center').innerText = "0%";
+                document.getElementById('statusSasaran').innerText = "Tiada Rekod Ditemui";
+                if(ytdChartInst) ytdChartInst.destroy();
+                return;
+            }
+
+            // Tetapkan label bulan terakhir dikemas kini
+            const namaBulanTerkini = senaraiBulan[bulanTerkiniIndex];
+            document.getElementById('labelBulanTerkini').innerText = namaBulanTerkini;
+
+            // Kira purata YTD (Year-To-Date) dari Januari hingga bulan terkini
+            kehadiranSekolahData.forEach(d => {
+                for (let i = 0; i <= bulanTerkiniIndex; i++) {
+                    let val = d[senaraiBulan[i]];
+                    if (val !== null && val !== undefined && val !== "") {
+                        totalSistem += parseFloat(val);
+                        countSistem++;
+                    }
+                }
+            });
+
+            let purataSemasa = 0;
+            if (countSistem > 0) {
+                purataSemasa = parseFloat((totalSistem / countSistem).toFixed(2));
+            }
+
+            // Kemas kini Teks Purata (Tengah Carta Bulat)
+            document.getElementById('purataSemasaYTD_Center').innerText = purataSemasa + "%";
+            
+            // Logik Visual Warna & Kotak Status (Sasaran = 95%)
+            let statusDiv = document.getElementById('statusSasaran');
+            let warnaCarta = "";
+            
+            if (purataSemasa >= 95) {
+                // Berjaya mencapai sasaran
+                warnaCarta = "#16a34a"; // Hijau success
+                statusDiv.style.backgroundColor = "#dcfce7";
+                statusDiv.style.color = "#15803d";
+            } else if (purataSemasa >= 90) {
+                // Hampir capai sasaran (Amaran Kuning)
+                warnaCarta = "#f59e0b"; // Oren warning
+                statusDiv.style.backgroundColor = "#fef3c7";
+                statusDiv.style.color = "#b45309";
+            } else {
+                // Gagal capai sasaran (Amaran Merah)
+                warnaCarta = "#dc2626"; // Merah danger
+                statusDiv.style.backgroundColor = "#fee2e2";
+                statusDiv.style.color = "#b91c1c";
+            }
+
+            // Mesej ikon sasaran
+            statusDiv.innerHTML = `
+                <div style="font-size: 0.95rem; text-transform: uppercase; font-weight: 700; opacity: 0.85;">Sasaran Sekolah 2026</div>
+                <div style="font-size: 1.8rem; font-weight: 800; margin-top: 4px;">🎯 95%</div>
+            `;
+
+            // RENDER CARTA BULAT (DOUGHNUT) MENGGUNAKAN CHART.JS
+            const ctxYTD = document.getElementById('ytdChart').getContext('2d');
+            let baki = 100 - purataSemasa;
+            if (baki < 0) baki = 0;
+
+            if (ytdChartInst) {
+                ytdChartInst.destroy();
+            }
+
+            ytdChartInst = new Chart(ctxYTD, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Selesai', 'Baki Sasaran'],
+                    datasets: [{
+                        data: [purataSemasa, baki],
+                        backgroundColor: ['#16a34a', '#f59e0b'],
+                        borderWidth: 0,
+                        hoverOffset: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '78%', // Ketebalan bulatan
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        animateScale: true,
+                        animateRotate: true
+                    }
+                }
+            });
         }
 
         // FUNGSI KEMAS KINI DROPDOWN KELAS UNTUK CARTA TREND
@@ -1238,7 +1377,7 @@
         // PAPARAN CARTA TREND (JAN - DIS)
         function renderTrendChart() {
             let trendData = [];
-            let labelCarta = 'Purata Kehadiran Sekolah (%)';
+            let labelCarta = 'Purata Kehadiran Terkini Sekolah (%)';
             const classSelect = document.getElementById('classTrendSelect');
             const kelasDipilih = classSelect ? classSelect.value : "Semua";
 
